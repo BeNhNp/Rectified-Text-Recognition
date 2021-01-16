@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
 
@@ -7,9 +10,11 @@ from torch.utils.data import DataLoader
 import time
 
 from train_helper import TainTestConfig
-from model import TextRecognitionModel, Accuracy
+from model import TextRecognitionModel
+from test_helper import Accuracy
+from dataset import LmdbDataset
 
-path = "/home/bit/data/wg/blobs/model_best.pth"
+path = "../data/models/model_best.pth"
 checkpoint = torch.load(path)
 
 config = TainTestConfig()
@@ -20,11 +25,11 @@ model.load_state_dict(checkpoint['state_dict'])
 
 model = model.to(config.device)
 if config.device == 'cuda':
-    model = nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
 
 model.eval()
 
-test_data_dir = "/home/bit/data/wg/data_lmdb_baidu/data_lmdb_release/evaluation/"
+test_data_dir = "../data/data_lmdb_release/evaluation/"
 test_data_set= ["IIIT5k_3000", "SVT", "IC03_867", "IC13_1015", "IC15_1811", "SVTP", "CUTE80"]
 device = config.device
 
@@ -41,7 +46,7 @@ for test_data in test_data_set:
     test_data += '(%d)'%(len(test_dataset))
     targets = []
     pred_rec = []
-    for i, data_in in enumerate(bar):
+    for i, data_in in enumerate(data_loader):
         
         if test_dataset.use_bidecoder:
             imgs, labels1, labels2, lengths = data_in

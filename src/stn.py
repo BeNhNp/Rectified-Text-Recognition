@@ -1,6 +1,11 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from crnn import ResNet
 
 # phi(x1, x2) = r^2 * log(r), where r = ||x1 - x2||_2
 def compute_partial_repr(input_points, control_points):
@@ -91,7 +96,7 @@ class Transformation(nn.Module):
             self.cnn = config.cnn
         elif config.cnn_type=='vgg':
             self.cnn = nn.Sequential(
-                nn.Conv2d(in_channels = input_channel_num, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False),  # 32*64
+                nn.Conv2d(in_channels = config.input_channel_num, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False),  # 32*64
                 nn.BatchNorm2d(32), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2),
                 nn.Conv2d(32, 64, 3, 1, 1, bias=False), # 16*32
                 nn.BatchNorm2d(64), nn.ReLU(True), nn.MaxPool2d(2, 2),

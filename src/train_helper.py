@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -127,7 +130,7 @@ class Logger:
             self.file.close()
 
 class TainTestConfig:
-    def __init__(self, batch_size = 1024, 
+    def __init__(self, batch_size = 512, 
         device='cuda', 
         use_bidecoder = True
     ):
@@ -136,10 +139,10 @@ class TainTestConfig:
         self.device = device
 
         self.train_data = [
-#             '/data/text-recognition/train/CVPR2016/',
-#             '/data/text-recognition/train/NIPS2014'
-            "/data/data_lmdb_release/training/MJ/MJ_train",
-            "/data/data_lmdb_release/training/ST/",
+#             '../data/text-recognition/train/CVPR2016/',
+#             '../data/text-recognition/train/NIPS2014'
+            "../data/data_lmdb_release/training/MJ/MJ_train",
+            "../data/data_lmdb_release/training/ST/",
         ]
         
         self.use_bidecoder = use_bidecoder

@@ -1,11 +1,11 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import datetime
 import time
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
-
-import warnings
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 import torch
 from torch.utils.data import DataLoader
@@ -55,17 +55,19 @@ with torch.no_grad():
 device = config.device
 loss_function = MaskedCrossEntropyLoss(use_bidecoder=config.use_bidecoder)
 
+end = time.time()
+n_iter = 0
+
 for epoch in range(start_epoch, epochs):
     
     model.train()
     
     losses = AverageMeter()
     
-    end = time.time()
-    
     total_iter = len(data_loader)
     for i, data_in in enumerate(data_loader):
-                
+        n_iter += 1
+        
         if config.use_bidecoder:
             imgs, labels1, labels2, lengths = data_in
             labels = (labels1.to(device), labels2.to(device))
@@ -95,11 +97,11 @@ for epoch in range(start_epoch, epochs):
                 time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                 epoch, i, total_iter, 
                 str(datetime.timedelta(seconds=int(time_elasped))), 
-                str(datetime.timedelta(seconds= int((total_iter*(epochs - epoch) - i) / time_elasped))), 
+                str(datetime.timedelta(seconds= int((total_iter*(epochs - epoch) - n_iter) / n_iter *time_elasped))), 
                 losses.val), flush=True
             )
     
-    path = "/home/bit/data/wg/blobs/model_epoch%d.pth"%epoch
+    path = "../data/models/model_epoch%d.pth"%epoch
     torch.save({
             'state_dict': model.module.state_dict(),
     #         'best_res': best_res,

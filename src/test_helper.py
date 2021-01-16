@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 def get_str_list(output, target, dataset=None):
     # label_seq
     assert output.dim() == 2 and target.dim() == 2
