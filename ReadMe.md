@@ -1,12 +1,16 @@
 # Rectified Text Recognition
 
-本项目旨在提供一套易于修改的文字识别模型，基于PyTorch框架。
-
 The purpose of this project is to provide a set of easily modified character recognition model based on PyTorch framework.
 
-目前还在调整中，预训练模型要等一段时间才能发布。
-
 At present, the code is still under adjustment, and it will take some time for the pre-training model to be released.
+
+Basicly, I want the code to be clean and easy to read. Some utilities you can add by yourself.
+
+This implementation ennable you to train large amout of imgae-text data on gpu.
+The imgae transformation and the decoder is adapted to gpu too.
+So the Gpu utilization is improved greatly.
+
+Hope you can enjoy your training.
 
 ## Dataset
 

@@ -1,5 +1,6 @@
-
+import datetime
 import time
+
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
 
@@ -58,17 +59,13 @@ for epoch in range(start_epoch, epochs):
     
     model.train()
     
-    batch_time = AverageMeter()
-    data_time = AverageMeter()
     losses = AverageMeter()
     
     end = time.time()
     
     total_iter = len(data_loader)
     for i, data_in in enumerate(data_loader):
-        
-        data_time.update(time.time() - end)
-        
+                
         if config.use_bidecoder:
             imgs, labels1, labels2, lengths = data_in
             labels = (labels1.to(device), labels2.to(device))
@@ -91,14 +88,14 @@ for epoch in range(start_epoch, epochs):
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
         optimizer.step()
-        
-        batch_time.update(time.time() - end)
-        end = time.time()
-        
+                
         if i % 256==0:
-            print('%s epoch %d : %d/%d loss: %f'%(
+            time_elasped = time.time() - end
+            print('%s epoch %d: %d/%d time elasped %s/remain %s loss: %f'%(
                 time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                 epoch, i, total_iter, 
+                str(datetime.timedelta(seconds=int(time_elasped))), 
+                str(datetime.timedelta(seconds= int((total_iter*(epochs - epoch) - i) / time_elasped))), 
                 losses.val), flush=True
             )
     
