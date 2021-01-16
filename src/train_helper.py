@@ -139,8 +139,8 @@ class TainTestConfig:
         self.device = device
 
         self.train_data = [
-#             '../data/text-recognition/train/CVPR2016/',
-#             '../data/text-recognition/train/NIPS2014'
+#             '../data/lmdb_train/CVPR2016/',
+#             '../data/lmdb_train/NIPS2014'
             "../data/data_lmdb_release/training/MJ/MJ_train",
             "../data/data_lmdb_release/training/ST/",
         ]
