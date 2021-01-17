@@ -18,7 +18,7 @@ you can use the datasets from [aster.pytorch](https://github.com/ayumiymk/aster.
  ([link](https://pan.baidu.com/s/1BMYb93u4gW_3GJdjBWSCSw) password: wi05).
 
 or you can use the datasets from [deep-text-recognition-benchmark](https://github.com/clovaai/deep-text-recognition-benchmark)
- ([link](https://pan.baidu.com/s/1KSNLv4EY3zFWHpBYlpFCBQ) password: rryk)(much more dataset is provided on goole drive on this repo).
+ ([link](https://pan.baidu.com/s/1KSNLv4EY3zFWHpBYlpFCBQ) password: rryk)(much more dataset is provided on google drive on this repo).
 
 or you can create your own datasets as long as follow the same format.
 

@@ -68,8 +68,6 @@ class CNN_ResNet(nn.Module):
 
 class TransformationConfig:
     def __init__(self, cnn = None):
-        self.cnn_type = 'resnet'
-#         self.cnn_type = 'vgg'
         self.input_channel_num = 3 # rgb
         self.control_points_size = (4,10) # shape of control points
         self.target_size = (32,100) # shape of output image 
@@ -78,11 +76,7 @@ class TransformationConfig:
         
         # the following are auto
         self.cnn = cnn
-        if self.cnn_type=='vgg':
-            self.outputsize = 256*2
-        else:
-#             self.outputsize = 256*16
-            self.outputsize = 256*2*16
+        self.outputsize = 256*2
 
 class Transformation(nn.Module):
     def __init__(self, config = TransformationConfig()):
@@ -94,7 +88,7 @@ class Transformation(nn.Module):
 
         if config.cnn:
             self.cnn = config.cnn
-        elif config.cnn_type=='vgg':
+        else:
             self.cnn = nn.Sequential(
                 nn.Conv2d(in_channels = config.input_channel_num, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False),  # 32*64
                 nn.BatchNorm2d(32), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2),
@@ -109,8 +103,6 @@ class Transformation(nn.Module):
                 nn.Conv2d(128, 256, 3, 1, 1, bias=False), # 1*2
                 nn.BatchNorm2d(256), nn.ReLU(True),
             )
-        else:
-            self.cnn = ResNet(config.input_channel_num)
             
         self.fc1 = nn.Sequential(nn.Linear(config.outputsize, 128), nn.ReLU(inplace=True))
         self.fc2 = nn.Linear(128, self.num_control_points*self.num_lines+self.num_lines + self.num_weights)
@@ -185,28 +177,26 @@ class Transformation(nn.Module):
 
     def forward(self, images):
         '''
-        input [batch, 3, width, height]
+        input [batch_size, 3, width, height]
         '''
-        if images.shape[-1]!=64 or images.shape[-2]!=32:
+        if images.shape[-1] != 64 or images.shape[-2] != 32:
             images = F.interpolate(images, (32, 64), mode='bilinear', align_corners=True)
         x = self.cnn(images)
         batch_size, _, h, w = x.size()
         x = x.view(batch_size, -1)
-#         print(x.shape)
-        img_feat = self.fc1(x) #img_feat.shape[256, 512]
+        img_feat = self.fc1(x)  # [batch_size, 512]
         x = self.fc2(0.1 * img_feat)
 
-        x = x.view(batch_size, -1)#x.shape[256, 30]
-        #print(count)
+        x = x.view(batch_size, -1)# [batch_size, 30]
         
         ctrl_pts_x, bias, weight = x.split((self.num_control_points*self.num_lines, self.num_lines, self.num_weights),1)
-        #print("top",top.shape)#[256, 3\10]
 
         y_w = [ctrl_pts_x]
         for i in range(2, self.num_weights+1):
             y_w.append(ctrl_pts_x*y_w[-1])
-        ctrl_pts_y_weight = torch.stack(y_w, 1) #ctrl_pts_y_weight.shape[256, 5, 10]
-        #(batch, num_weights) * (num_weights, num_control_points) -> (batch, num_control_points)
+        ctrl_pts_y_weight = torch.stack(y_w, 1) #[batch_size, 5, 10]
+        #(batch_size, num_weights) * (num_weights, num_control_points) -> 
+        # (batch_size, num_control_points)
         ctrl_pts_y_ = torch.bmm(weight.unsqueeze(1), ctrl_pts_y_weight).squeeze(1)
         ctrl_pts_y_ = ctrl_pts_y_.chunk(self.num_lines,1)
         ctrl_pts_x_ = ctrl_pts_x.chunk(self.num_lines,1)
@@ -225,6 +215,6 @@ class Transformation(nn.Module):
         grid = torch.clamp(grid, 0, 1)
         # the input to grid_sample is normalized [-1, 1], but what we get is [0, 1]
         grid = 2.0 * grid - 1.0
-        images_rectified = F.grid_sample(images, grid)#[256, 3, 32, 100]
+        images_rectified = F.grid_sample(images, grid)#[batch_size, 3, 32, 100]
 
         return images_rectified, (control_points, bias, weight)

@@ -14,11 +14,13 @@ from model import TextRecognitionModel
 from test_helper import Accuracy
 from dataset import LmdbDataset
 
-path = "../data/models/model_best.pth"
+# path = "../data/models/model_best.pth"
+path = "../data/models/model_epoch4.pth"
+
 checkpoint = torch.load(path)
 
 config = TainTestConfig()
-config.batch_size = 32
+config.batch_size = 256
 
 model = TextRecognitionModel(config.model_config)
 model.load_state_dict(checkpoint['state_dict'])
@@ -37,7 +39,7 @@ for test_data in test_data_set:
     path = test_data_dir + test_data
     test_dataset = LmdbDataset(path, config.lmdb_config)
     data_loader = DataLoader(test_dataset, 
-                        batch_size = 128,#config.batch_size, 
+                        batch_size = config.batch_size, 
                         num_workers = 4,
                         shuffle = False, 
                         pin_memory = True, 
@@ -68,6 +70,6 @@ for test_data in test_data_set:
         targets.append(labels1.cpu() if test_dataset.use_bidecoder else labels.cpu())
         break
         
-    eval_res = Accuracy(torch.cat(pred_rec), torch.cat(targets), test_dataset)
+    eval_res = Accuracy(torch.cat(pred_rec), torch.cat(targets), config.lmdb_config)
     print(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + ' '+ test_data)
     print('lexicon0: {0:.3f}'.format(eval_res))

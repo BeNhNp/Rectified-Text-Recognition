@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 import sys
 import os
+import time
 
 import random
 import numpy as np
@@ -129,6 +130,21 @@ class Logger:
         if self.file is not None:
             self.file.close()
 
+from test_helper import Accuracy
+
+version = torch.__version__.split('.')
+if version[0]=='1':
+    if int(version[1])==1:
+        # ignore bugs with pytorch 1.1 
+        import warnings
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        torch.nn.RNNBase.flatten_parameters = lambda x: None
+    
+    if int(version[1])>2:
+        grid_sample_ori = F.grid_sample
+        F.grid_sample = lambda *args, **kargs: grid_sample_ori(*args, **kargs, align_corners=True)
+
+
 class TainTestConfig:
     def __init__(self, batch_size = 512, 
         device='cuda', 
@@ -148,13 +164,14 @@ class TainTestConfig:
         self.use_bidecoder = use_bidecoder
 
         sys.stdout = Logger('./log.txt')
+        self.iter_to_valid = 1024
 
         '''
         'LOWERCASE', 'ALLCASES', 'ALLCASES_SYMBOLS'
         '''
         self.lmdb_config = LmdbDatasetConfig(voc_type = 'ALLCASES_SYMBOLS')
         self.lmdb_config.use_bidecoder = self.use_bidecoder
-        self.lmdb_config.num_samples   = 4*10000 #-\inf to 0 means use all data
+        self.lmdb_config.num_samples   = 0#-\inf to 0 means use all data
         
         self.model_config = TextRecognitionModelConfig()
         self.model_config.num_classes = self.lmdb_config.num_classes
@@ -169,3 +186,49 @@ class TainTestConfig:
         torch.manual_seed(SEED)
         torch.cuda.manual_seed(SEED)
         torch.backends.cudnn.deterministic = True
+
+        self._best_score = -1
+    
+    def save_model(self, model, eval_score):
+        if eval_score<0.8: return
+        if self._best_score < eval_score:
+            self._best_score = eval_score
+            torch.save({
+                    'state_dict': model.module.state_dict(),
+                    'best_score': eval_score,
+                }, "../data/models/model_best.pth"
+            )
+    def valid(self, test_dataset, data_loader, model):
+
+        pred_rec = []
+        targets = []
+        device  = self.device
+        for i, data_in in enumerate(data_loader):
+    
+            if self.use_bidecoder:
+                imgs, labels1, labels2, lengths = data_in
+                labels = (labels1.to(device), labels2.to(device))
+            else:
+                imgs, labels, lengths = data_in
+                labels = labels.to(device)
+            imgs = imgs.to(device)
+            # lengths = lengths.to(device)
+            
+            with torch.no_grad():
+                output_dict = model(imgs, labels)
+            
+            prediction = output_dict['prediction']
+            if isinstance(prediction, tuple):
+                prediction = prediction[0]
+            _, prediction = prediction.max(2)
+            pred_rec.append(prediction.cpu())
+            targets.append(labels1.cpu() if self.use_bidecoder else labels.cpu())
+            
+        eval_score = Accuracy(torch.cat(pred_rec), torch.cat(targets), self.lmdb_config)
+        print(
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()), 
+            'valid score {0:.3f}'.format(eval_score),
+            flush=True
+        )
+        self.save_model(model, eval_score)
+        return eval_score

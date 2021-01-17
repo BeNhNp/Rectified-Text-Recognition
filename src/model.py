@@ -12,7 +12,6 @@ from decoder import DecoderWithAttention
 class TextRecognitionModelConfig:
     def __init__(self):
         self.device              = 'cuda'
-        self.cnn_type            = 'vgg'
         self.num_classes         = 97
         self.max_len_labels      = 100
         self.eos                 = 1
@@ -29,6 +28,7 @@ class TextRecognitionModelConfig:
 
         self.with_beam_search    = False
         self.beam_width          = 5
+
     
 class TextRecognitionModel(nn.Module):
     
@@ -44,8 +44,10 @@ class TextRecognitionModel(nn.Module):
         self.cnn = ResNet()
         
         if self.config.with_STN:
-            config_stn = TransformationConfig(self.cnn)
-            
+            config_stn = TransformationConfig()
+            # config_stn = TransformationConfig(self.cnn)
+            # config_stn.outputsize = 256*2*16
+
             self.stn = Transformation(config_stn)
 
         self.encoder = CRNN(self.cnn)
@@ -64,7 +66,6 @@ class TextRecognitionModel(nn.Module):
         '''
         images [batch_size, 3, 64, 256]
         rec_targets [batch_size, max_len_labels]
-        rec_lengths [batch_size]
         '''
         
         if max_label_length>0:
