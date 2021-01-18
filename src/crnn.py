@@ -34,24 +34,18 @@ class ResNetBlock(nn.Module):
 class ResNet(nn.Module):
     def __init__(self, in_channels = 3):
         super().__init__()
+        self.inplanes = 32
         self.layer0 = nn.Sequential(
-            nn.Conv2d(in_channels, 16, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(16),
+            nn.Conv2d(in_channels, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(self.inplanes),
             nn.ReLU(inplace=True))
 
-        self.inplanes = 16
-        self.layer1 = self._make_layer(32,  3, [2, 2]) # [8, 25]
+        self.layer1 = self._make_layer(self.inplanes,  3, [2, 2]) # [8, 25]
         self.layer2 = self._make_layer(64,  4, [2, 2]) # [8, 25]
         self.layer3 = self._make_layer(128, 6, [2, 1]) # [4, 25]
         self.layer4 = self._make_layer(256, 6, [2, 1]) # [2, 25]
         self.layer5 = self._make_layer(512, 3, [2, 1]) # [1, 25]
     
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
     def _make_layer(self, planes, blocks, stride):
         downsample = None
         if stride != [1, 1] or self.inplanes != planes:
@@ -90,8 +84,29 @@ class CRNN(nn.Module):
         else:
             self.cnn = cnn
         
-        self.rnn = nn.LSTM(512, 256, bidirectional=True, num_layers=2, batch_first=True)
+        self.rnn = nn.LSTM(512, 256, 
+            bidirectional=True, num_layers=2, 
+            dropout=0.2,
+            batch_first=True
+        )
+
         self.out_planes = 2 * 256
+        
+        for m in self.cnn.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight)
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.001)
+                m.bias.data.zero_()
+        
+        for weight in self.rnn.parameters():
+            if len(weight.size()) > 1:
+                nn.init.orthogonal_(weight)
 
     def forward(self, x):
         '''

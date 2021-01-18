@@ -283,7 +283,6 @@ class AttentionUnit(nn.Module):
 
         return alpha
 
-
 class DecoderUnit(nn.Module):
     def __init__(self, sDim, xDim, yDim, attDim):
         super(DecoderUnit, self).__init__()
@@ -295,15 +294,22 @@ class DecoderUnit(nn.Module):
 
         self.attention_unit = AttentionUnit(sDim, xDim, attDim)
         self.tgt_embedding = nn.Embedding(yDim+1, self.emdDim) # the last is used for <BOS> 
-        self.gru = nn.GRU(input_size=xDim+self.emdDim, hidden_size=sDim, batch_first=True)
+        self.gru = nn.GRU(
+            input_size=xDim+self.emdDim, 
+            hidden_size=sDim, 
+            batch_first=True
+        )
         self.fc = nn.Linear(sDim, yDim)
 
-        # self.init_weights()
+        self.init_weights()
 
     def init_weights(self):
         init.normal_(self.tgt_embedding.weight, std=0.01)
         init.normal_(self.fc.weight, std=0.01)
         init.constant_(self.fc.bias, 0)
+        for weight in self.gru.parameters():
+            if len(weight.size()) > 1:
+                init.orthogonal_(weight)
 
     def forward(self, x, sPrev, yPrev):
         # x: feature sequence from the image decoder.

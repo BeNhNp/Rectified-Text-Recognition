@@ -11,18 +11,19 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from train_helper import MaskedCrossEntropyLoss, AverageMeter, TainTestConfig
+from train_helper import MaskedCrossEntropyLoss, TainTestConfig
 from dataset import LmdbDataset
 
 from model import TextRecognitionModel
 
 config = TainTestConfig()
+TIMESTAMP = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 writer = SummaryWriter(
-    log_dir="../data/logs",
+    log_dir="../data/logs/" + TIMESTAMP,
     flush_secs = 30,
 )
 
-# config.lmdb_config.num_samples = 4*10000
+# config.lmdb_config.num_samples = 10000
 config.batch_size = 1024
 config.iter_to_valid = 128*8
 
@@ -58,11 +59,11 @@ model = torch.nn.DataParallel(model)
 parameters = model.parameters()
 parameters = filter(lambda p: p.requires_grad, parameters)
 
+epochs = 4
 optimizer = torch.optim.Adadelta(parameters)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[3,4], gamma=0.1)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[epochs-3, epochs-2,epochs-1], gamma=0.5)
 
 start_epoch = 0
-epochs = 6
 grad_clip = 1
 
 with torch.no_grad():
@@ -73,13 +74,11 @@ loss_function = MaskedCrossEntropyLoss(use_bidecoder=config.use_bidecoder)
 
 end = time.time()
 n_iter = 0
-
+n_iter_valid = 0
 model.train()
 
 for epoch in range(start_epoch, epochs):
-    
-    losses = AverageMeter()
-    
+        
     total_iter = len(data_loader)
     for i, data_in in enumerate(data_loader):
         n_iter += 1
@@ -98,9 +97,7 @@ for epoch in range(start_epoch, epochs):
         batch_size = imgs.size(0)
         predictions = output_dict['prediction']
         loss = loss_function(predictions, labels, lengths)
-        
-        losses.update(loss.item(), batch_size)
-        
+                
         writer.add_scalar("Loss/train", loss.item(), n_iter)
 
         optimizer.zero_grad()
@@ -112,10 +109,11 @@ for epoch in range(start_epoch, epochs):
         if i % config.iter_to_valid==0: # valid on the test dataset
             model.eval()
             eval_score = config.valid(test_dataset, data_loader_test, model)
-            writer.add_scalar("Accuracy/valid", eval_score)
+            writer.add_scalar("Accuracy/valid", eval_score, n_iter_valid)
+            n_iter_valid += 1
             model.train()
 
-        if i % 512==0: # output loss information
+        if i % 128==0: # output loss information
             time_elasped = time.time() - end
             time_remain = (total_iter*(epochs - epoch) - i) / n_iter *time_elasped
             print('%s epoch %d: %d/%d time elasped %s/remain %s loss: %f'%(
@@ -123,12 +121,11 @@ for epoch in range(start_epoch, epochs):
                     epoch, i, total_iter, 
                     str(datetime.timedelta(seconds=int(time_elasped))), 
                     str(datetime.timedelta(seconds= int(time_remain))), 
-                    losses.val
+                    loss.item()
                     ), 
                 flush=True
             )
     
-    # config.valid(test_dataset, data_loader, model)
     scheduler.step(epoch)
 
 writer.close()

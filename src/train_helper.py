@@ -24,7 +24,7 @@ class MaskedCrossEntropyLoss(nn.Module):
         ):
         super().__init__()
         self.use_bidecoder = use_bidecoder
-        self.weight = (1, 1) if use_bidecoder else None
+        self.weight = (0.3, 0.7) if use_bidecoder else None
         self.size_average = size_average
         self.sequence_normalize = sequence_normalize
         self.sample_normalize = sample_normalize
@@ -73,27 +73,6 @@ class MaskedCrossEntropyLoss(nn.Module):
             output = output / batch_size
 
         return output
-
-class AverageMeter:
-    """Computes and stores the average and current value"""
-
-    def __init__(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
 
 class Logger:
     def __init__(self, path=None):
@@ -180,11 +159,13 @@ class TainTestConfig:
         self.model_config.device = self.device
         self.model_config.use_bidecoder = self.use_bidecoder
         
-        SEED = 1234
+        SEED = 1
         random.seed(SEED)
         np.random.seed(SEED)
         torch.manual_seed(SEED)
         torch.cuda.manual_seed(SEED)
+        torch.cuda.manual_seed_all(SEED)
+        torch.backends.cudnn.benchmark = True
         torch.backends.cudnn.deterministic = True
 
         self._best_score = -1

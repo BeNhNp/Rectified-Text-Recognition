@@ -17,10 +17,9 @@ class TextRecognitionModelConfig:
         self.eos                 = 1
 
         self.with_STN            = True # add the STN layer
-        self.tps_inputsize       = [32, 64]
-        self.tps_outputsize      = [32, 100]
-        self.tps_margins         = [0.05,0.05]
-        self.control_points_size = (4, 10)
+        # self.tps_outputsize      = [32, 100]
+        # self.tps_margins         = [0.05,0.05]
+        # self.control_points_size = (4, 10)
 
         self.attention_dim       = 512 # the dim for attention
         self.decoder_s_dim       = 512 # the dim of hidden layer in decoder
@@ -64,7 +63,7 @@ class TextRecognitionModel(nn.Module):
 
     def forward(self, images, rec_targets, max_label_length = 0):
         '''
-        images [batch_size, 3, 64, 256]
+        images [batch_size, 64, 256, 3]
         rec_targets [batch_size, max_len_labels]
         '''
         
@@ -75,13 +74,13 @@ class TextRecognitionModel(nn.Module):
         
         return_dict = {}
 
+        # normalize the images into x [batch_size, 3, 64, 256]
         x = images.transpose(1, 2).transpose(1, 3).contiguous().float()
         x.sub_(127.5).div_(127.5)
         
         # rectification
         if self.config.with_STN:
-            x = F.interpolate(x, self.config.tps_inputsize, mode='bilinear', align_corners=True)
-            x_new, (control_points, bias, weight) = self.stn(x)
+            x_new, control_points, bias, weight = self.stn(x, output_control_points = True)
 
             if not self.training:
                 # save for visualization

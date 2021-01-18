@@ -5,8 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from crnn import ResNet
-
 # phi(x1, x2) = r^2 * log(r), where r = ||x1 - x2||_2
 def compute_partial_repr(input_points, control_points):
     N = input_points.size(0)
@@ -22,54 +20,11 @@ def compute_partial_repr(input_points, control_points):
     repr_matrix.masked_fill_(mask, 0)
     return repr_matrix
 
-class CNN_Vgg(nn.Module):
-    def __init__(self, input_channel_num = 3):
-        super().__init__()
-        
-        self.cnn = nn.Sequential(
-            nn.Conv2d(in_channels = input_channel_num, out_channels=32, kernel_size=3, stride=1, padding=1, bias=False),  # 32*64
-            nn.BatchNorm2d(32), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(32, 64, 3, 1, 1, bias=False), # 16*32
-            nn.BatchNorm2d(64), nn.ReLU(True), nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 64, 3, 1, 1, bias=False), # 8*16
-            nn.BatchNorm2d(64), nn.ReLU(True), nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, 3, 1, 1, bias=False), # 4*8
-            nn.BatchNorm2d(128), nn.ReLU(True), nn.MaxPool2d(2, 2),
-            nn.Conv2d(128, 128, 3, 1, 1, bias=False), # 2*4
-            nn.BatchNorm2d(128), nn.ReLU(True), nn.MaxPool2d(2, 2),
-            nn.Conv2d(128, 256, 3, 1, 1, bias=False), # 1*2
-            nn.BatchNorm2d(256), nn.ReLU(True),
-        )
-        
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-    def forward(self, input):
-        y = self.cnn(input)
-        return y
-
-class CNN_ResNet(nn.Module):
-    def __init__(self, cnn):
-        super().__init__()
-        self.cnn = cnn
-        
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-    def forward(self, input):
-        y = self.cnn(input)
-        return y
-
 class TransformationConfig:
     def __init__(self, cnn = None):
         self.input_channel_num = 3 # rgb
-        self.control_points_size = (4,10) # shape of control points
+        # self.control_points_size = (4,10) # shape of control points
+        self.control_points_size = (2,10)
         self.target_size = (32,100) # shape of output image 
         self.margins = (0.05, 0.05)
         self.num_weights = 4
@@ -94,19 +49,18 @@ class Transformation(nn.Module):
                 nn.BatchNorm2d(32), nn.ReLU(True), nn.MaxPool2d(kernel_size=2, stride=2),
                 nn.Conv2d(32, 64, 3, 1, 1, bias=False), # 16*32
                 nn.BatchNorm2d(64), nn.ReLU(True), nn.MaxPool2d(2, 2),
-                nn.Conv2d(64, 64, 3, 1, 1, bias=False), # 8*16
-                nn.BatchNorm2d(64), nn.ReLU(True), nn.MaxPool2d(2, 2),
-                nn.Conv2d(64, 128, 3, 1, 1, bias=False), # 4*8
+                nn.Conv2d(64, 128, 3, 1, 1, bias=False), # 8*16
                 nn.BatchNorm2d(128), nn.ReLU(True), nn.MaxPool2d(2, 2),
-                nn.Conv2d(128, 128, 3, 1, 1, bias=False), # 2*4
-                nn.BatchNorm2d(128), nn.ReLU(True), nn.MaxPool2d(2, 2),
-                nn.Conv2d(128, 256, 3, 1, 1, bias=False), # 1*2
+                nn.Conv2d(128, 256, 3, 1, 1, bias=False), # 4*8
+                nn.BatchNorm2d(256), nn.ReLU(True), nn.MaxPool2d(2, 2),
+                nn.Conv2d(256, 256, 3, 1, 1, bias=False), # 2*4
+                nn.BatchNorm2d(256), nn.ReLU(True), nn.MaxPool2d(2, 2),
+                nn.Conv2d(256, 256, 3, 1, 1, bias=False), # 1*2
                 nn.BatchNorm2d(256), nn.ReLU(True),
             )
             
         self.fc1 = nn.Sequential(nn.Linear(config.outputsize, 128), nn.ReLU(inplace=True))
         self.fc2 = nn.Linear(128, self.num_control_points*self.num_lines+self.num_lines + self.num_weights)
-
         
         self.init_weights(self.cnn)
         self.init_weights(self.fc1)
@@ -173,11 +127,10 @@ class Transformation(nn.Module):
         ctrl_weights = torch.cat([ctrl_pts_x]*self.num_lines+[weight],0)
         fc.weight.data.zero_()
         fc.bias.data = torch.Tensor(ctrl_weights)
-       
-
-    def forward(self, images):
+    
+    def forward(self, images, output_control_points = False):
         '''
-        input [batch_size, 3, width, height]
+        input [batch_size, 3, height, width]
         '''
         if images.shape[-1] != 64 or images.shape[-2] != 32:
             images = F.interpolate(images, (32, 64), mode='bilinear', align_corners=True)
@@ -217,4 +170,6 @@ class Transformation(nn.Module):
         grid = 2.0 * grid - 1.0
         images_rectified = F.grid_sample(images, grid)#[batch_size, 3, 32, 100]
 
-        return images_rectified, (control_points, bias, weight)
+        if output_control_points:
+            return images_rectified, control_points, bias, weight
+        return images_rectified
