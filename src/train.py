@@ -8,6 +8,7 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
 
 import torch
+
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
@@ -61,7 +62,7 @@ parameters = filter(lambda p: p.requires_grad, parameters)
 
 epochs = 4
 optimizer = torch.optim.Adadelta(parameters)
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[epochs-3, epochs-2,epochs-1], gamma=0.5)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[epochs-2,epochs-1], gamma=0.2)
 
 start_epoch = 0
 grad_clip = 1

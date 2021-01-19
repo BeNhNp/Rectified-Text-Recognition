@@ -92,22 +92,6 @@ class CRNN(nn.Module):
 
         self.out_planes = 2 * 256
         
-        for m in self.cnn.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    m.bias.data.zero_()
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-            elif isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.001)
-                m.bias.data.zero_()
-        
-        for weight in self.rnn.parameters():
-            if len(weight.size()) > 1:
-                nn.init.orthogonal_(weight)
-
     def forward(self, x):
         '''
         x shape: [batch_size, 3, 32, 100]

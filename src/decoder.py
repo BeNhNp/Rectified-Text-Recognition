@@ -187,7 +187,7 @@ class DecoderWithAttention(nn.Module):
         s = sorted_score.clone()
 
         batch_eos_found = [0] * batch_size  # the number of EOS found
-                                                                                # in the backward loop below for each batch
+                                            # in the backward loop below for each batch
         t = self.max_len_labels - 1
         # initialize the back pointer with the sorted order of the last step beams.
         # add pos_index for indexing variable with b*k as the first dimension.
@@ -249,16 +249,6 @@ class AttentionUnit(nn.Module):
         self.xEmbed = nn.Linear(xDim, attDim)
         self.wEmbed = nn.Linear(attDim, 1)
 
-        # self.init_weights()
-
-    def init_weights(self):
-        init.normal_(self.sEmbed.weight, std=0.01)
-        init.constant_(self.sEmbed.bias, 0)
-        init.normal_(self.xEmbed.weight, std=0.01)
-        init.constant_(self.xEmbed.bias, 0)
-        init.normal_(self.wEmbed.weight, std=0.01)
-        init.constant_(self.wEmbed.bias, 0)
-
     def forward(self, x, sPrev):
         '''
         x shape [[batch_size, length_of_labels, xDim]]
@@ -300,16 +290,6 @@ class DecoderUnit(nn.Module):
             batch_first=True
         )
         self.fc = nn.Linear(sDim, yDim)
-
-        self.init_weights()
-
-    def init_weights(self):
-        init.normal_(self.tgt_embedding.weight, std=0.01)
-        init.normal_(self.fc.weight, std=0.01)
-        init.constant_(self.fc.bias, 0)
-        for weight in self.gru.parameters():
-            if len(weight.size()) > 1:
-                init.orthogonal_(weight)
 
     def forward(self, x, sPrev, yPrev):
         # x: feature sequence from the image decoder.

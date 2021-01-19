@@ -62,8 +62,6 @@ class Transformation(nn.Module):
         self.fc1 = nn.Sequential(nn.Linear(config.outputsize, 128), nn.ReLU(inplace=True))
         self.fc2 = nn.Linear(128, self.num_control_points*self.num_lines+self.num_lines + self.num_weights)
         
-        self.init_weights(self.cnn)
-        self.init_weights(self.fc1)
         self.init_last_fc(self.fc2, config.margins)
 
         # output_ctrl_pts are specified, according to our task.
@@ -106,18 +104,6 @@ class Transformation(nn.Module):
         self.register_buffer('target_coordinate_repr', target_coordinate_repr)
         self.register_buffer('target_control_points', target_control_points)
     
-    def init_weights(self, module):
-        for m in module.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight)
-                if m.bias is not None:
-                    m.bias.data.zero_()
-            elif isinstance(m, nn.BatchNorm2d):
-                m.weight.data.fill_(1)
-                m.bias.data.zero_()
-            elif isinstance(m, nn.Linear):
-                m.weight.data.normal_(0, 0.001)
-                m.bias.data.zero_()
     def init_last_fc(self, fc, margins):
         marginx, marginy = margins
         ctrl_pts_x = torch.linspace(marginx, 1.-marginx, self.num_control_points)
@@ -168,7 +154,7 @@ class Transformation(nn.Module):
         grid = torch.clamp(grid, 0, 1)
         # the input to grid_sample is normalized [-1, 1], but what we get is [0, 1]
         grid = 2.0 * grid - 1.0
-        images_rectified = F.grid_sample(images, grid)#[batch_size, 3, 32, 100]
+        images_rectified = F.grid_sample(images, grid, align_corners=True)#[batch_size, 3, 32, 100]
 
         if output_control_points:
             return images_rectified, control_points, bias, weight

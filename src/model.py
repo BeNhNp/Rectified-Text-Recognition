@@ -17,9 +17,6 @@ class TextRecognitionModelConfig:
         self.eos                 = 1
 
         self.with_STN            = True # add the STN layer
-        # self.tps_outputsize      = [32, 100]
-        # self.tps_margins         = [0.05,0.05]
-        # self.control_points_size = (4, 10)
 
         self.attention_dim       = 512 # the dim for attention
         self.decoder_s_dim       = 512 # the dim of hidden layer in decoder
@@ -28,7 +25,6 @@ class TextRecognitionModelConfig:
         self.with_beam_search    = False
         self.beam_width          = 5
 
-    
 class TextRecognitionModel(nn.Module):
     
     """
@@ -61,6 +57,18 @@ class TextRecognitionModel(nn.Module):
             device = config.device,
         )
 
+        for name, param in self.named_parameters():
+            if 'fc2' in name:
+                print(f'Skip {name} as it is already initialized')
+                continue
+            if 'bias' in name:
+                nn.init.constant_(param, 0.0)
+            if 'weight' in name:
+                if len(param.shape) >= 2:
+                    nn.init.kaiming_normal_(param)
+                else:
+                    param.data.fill_(1)
+
     def forward(self, images, rec_targets, max_label_length = 0):
         '''
         images [batch_size, 64, 256, 3]
@@ -75,17 +83,28 @@ class TextRecognitionModel(nn.Module):
         return_dict = {}
 
         # normalize the images into x [batch_size, 3, 64, 256]
-        x = images.transpose(1, 2).transpose(1, 3).contiguous().float()
+        # x = images.transpose(1, 2).transpose(1, 3).contiguous().float()
+        x = images.permute(0,3,1,2).float()
         x.sub_(127.5).div_(127.5)
         
         # rectification
         if self.config.with_STN:
-            x_new, control_points, bias, weight = self.stn(x, output_control_points = True)
+            if False and self.training and torch.rand(1).item()>0.5:
+                x_new = F.interpolate(
+                    x, 
+                    (self.stn.target_height, self.stn.target_width), 
+                    mode='bilinear', align_corners=True
+                )
+            else:
+                output = self.stn(x, output_control_points = not self.training)
 
-            if not self.training:
-                # save for visualization
-                return_dict['control_points'] = control_points
-                return_dict['rectified_images'] = x_new
+                if not self.training:
+                    x_new, control_points, bias, weight = output
+                    # save for visualization
+                    return_dict['control_points'] = control_points
+                    return_dict['rectified_images'] = x_new
+                else:
+                    x_new = output
 
         # x_new [batch_size, 3, 32, 100]
         encoder_feats = self.encoder(x_new)

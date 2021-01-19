@@ -15,7 +15,7 @@ def get_vocabulary(voc_type, EOS='EOS', PADDING='PADDING', UNKNOWN='UNKNOWN'):
     voc_type: str: one of 'LOWERCASE', 'ALLCASES', 'ALLCASES_SYMBOLS'
     '''
 
-    voc = [PADDING, EOS]
+    voc = [EOS, PADDING]
     types = ['LOWERCASE', 'ALLCASES', 'ALLCASES_SYMBOLS']
     if voc_type == 'LOWERCASE':
         voc+= list(string.digits + string.ascii_lowercase + string.punctuation)
@@ -41,8 +41,8 @@ class LmdbDatasetConfig:
         self.max_len_labels= 100
         self.use_bidecoder = True
         
-        self.imgHeight = 64
-        self.imgWidth = 256
+        self.imgHeight = 36#64
+        self.imgWidth = 128#256
         
         self.EOS = 'EOS'
         self.PADDING = 'PADDING'
@@ -56,7 +56,7 @@ class LmdbDatasetConfig:
 class LmdbDataset(Dataset):
     def __init__(self, root, config = LmdbDatasetConfig()):
         super().__init__()
-        self.env = lmdb.open(root, max_readers=4, readonly=True)
+        self.env = lmdb.open(root, max_readers=8, readonly=True)
         assert self.env is not None, "cannot create lmdb from %s" % root
         
         self.txn = self.env.begin()
@@ -105,14 +105,20 @@ class LmdbDataset(Dataset):
         # uncompress the jpeg/png file bytes
         file_bytes = np.asarray(bytearray(imgbuf), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        height = img.shape[0]
-        width = img.shape[1]
-        if height> width:
-            img = cv2.resize(img, dsize=(self.imgHeight, self.imgWidth), interpolation=cv2.INTER_CUBIC)
-            img = cv2.transpose(img)
-            img = cv2.flip(img, 1)
-        else:
-            img = cv2.resize(img, dsize=(self.imgWidth, self.imgHeight), interpolation=cv2.INTER_CUBIC)
+        # height = img.shape[0]
+        # width = img.shape[1]
+        # if height> width:
+        #     img = cv2.resize(img, dsize=(self.imgHeight, self.imgWidth), interpolation=cv2.INTER_CUBIC)
+        #     img = cv2.transpose(img)
+        #     img = cv2.flip(img, 1)
+        # else:
+        img = cv2.resize(
+            img, 
+            dsize=(self.imgWidth, self.imgHeight), 
+            interpolation=cv2.INTER_CUBIC
+        )
+        # if np.random.randint(3)==0:
+        #     img = cv2.flip(img, -1)
         
         if self.lowercase:
             word = word.lower()

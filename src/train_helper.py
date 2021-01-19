@@ -24,7 +24,7 @@ class MaskedCrossEntropyLoss(nn.Module):
         ):
         super().__init__()
         self.use_bidecoder = use_bidecoder
-        self.weight = (0.3, 0.7) if use_bidecoder else None
+        self.weight = (0.5, 0.5) if use_bidecoder else None
         self.size_average = size_average
         self.sequence_normalize = sequence_normalize
         self.sample_normalize = sample_normalize
@@ -65,7 +65,7 @@ class MaskedCrossEntropyLoss(nn.Module):
 
         output = - input.gather(1, target.long()) * mask
 
-        output = torch.sum(output, 0)
+        output = torch.sum(output)
        
         if self.sequence_normalize:
             output = output / torch.sum(mask)
@@ -111,18 +111,17 @@ class Logger:
 
 from test_helper import Accuracy
 
-version = torch.__version__.split('.')
-if version[0]=='1':
-    if int(version[1])==1:
-        # ignore bugs with pytorch 1.1 
-        import warnings
-        warnings.filterwarnings("ignore", category=RuntimeWarning)
-        torch.nn.RNNBase.flatten_parameters = lambda x: None
+# version = torch.__version__.split('.')
+# if version[0]=='1':
+#     if int(version[1])==1:
+#         # ignore bugs with pytorch 1.1 
+#         import warnings
+#         warnings.filterwarnings("ignore", category=RuntimeWarning)
+#         torch.nn.RNNBase.flatten_parameters = lambda x: None
     
-    if int(version[1])>2:
-        grid_sample_ori = F.grid_sample
-        F.grid_sample = lambda *args, **kargs: grid_sample_ori(*args, **kargs, align_corners=True)
-
+#     if int(version[1])>2:
+#         grid_sample_ori = F.grid_sample
+#         F.grid_sample = lambda *args, **kargs: grid_sample_ori(*args, **kargs, align_corners=True)
 
 class TainTestConfig:
     def __init__(self, batch_size = 512, 
@@ -148,7 +147,7 @@ class TainTestConfig:
         '''
         'LOWERCASE', 'ALLCASES', 'ALLCASES_SYMBOLS'
         '''
-        self.lmdb_config = LmdbDatasetConfig(voc_type = 'ALLCASES_SYMBOLS')
+        self.lmdb_config = LmdbDatasetConfig(voc_type = 'LOWERCASE')
         self.lmdb_config.use_bidecoder = self.use_bidecoder
         self.lmdb_config.num_samples   = 0#-\inf to 0 means use all data
         
@@ -185,7 +184,6 @@ class TainTestConfig:
         targets = []
         device  = self.device
         for i, data_in in enumerate(data_loader):
-    
             if self.use_bidecoder:
                 imgs, labels1, labels2, lengths = data_in
                 labels = (labels1.to(device), labels2.to(device))
