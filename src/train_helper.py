@@ -111,43 +111,50 @@ class Logger:
 
 from test_helper import Accuracy
 
-# version = torch.__version__.split('.')
-# if version[0]=='1':
-#     if int(version[1])==1:
-#         # ignore bugs with pytorch 1.1 
-#         import warnings
-#         warnings.filterwarnings("ignore", category=RuntimeWarning)
-#         torch.nn.RNNBase.flatten_parameters = lambda x: None
+version = torch.__version__.split('.')
+if version[0]=='1':
+    if int(version[1])==1:
+        # ignore bugs with pytorch 1.1 
+        import warnings
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        torch.nn.RNNBase.flatten_parameters = lambda x: None
     
 #     if int(version[1])>2:
 #         grid_sample_ori = F.grid_sample
 #         F.grid_sample = lambda *args, **kargs: grid_sample_ori(*args, **kargs, align_corners=True)
 
 class TainTestConfig:
-    def __init__(self, batch_size = 512, 
+    def __init__(self, 
+        name = None, 
+        batch_size = 512, 
         device='cuda', 
         use_bidecoder = True
     ):
 
+        if name:
+            self.name = name
+        else:
+            self.name = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        
         self.batch_size = batch_size
         self.device = device
 
         self.train_data = [
-#             '../data/lmdb_train/CVPR2016/',
-#             '../data/lmdb_train/NIPS2014'
-            "../data/data_lmdb_release/training/MJ/MJ_train",
-            "../data/data_lmdb_release/training/ST/",
+            '../data/lmdbs/train/CVPR2016/',
+            '../data/lmdbs/train/NIPS2014'
+            # "../data/data_lmdb_release/training/MJ/MJ_train",
+            # "../data/data_lmdb_release/training/ST/",
         ]
         
         self.use_bidecoder = use_bidecoder
 
-        sys.stdout = Logger('./log.txt')
+        sys.stdout = Logger('../data/logs/%s/log.txt'%self.name)
         self.iter_to_valid = 1024
 
         '''
-        'LOWERCASE', 'ALLCASES', 'ALLCASES_SYMBOLS'
+        'LOWERCASE', 'ALLCASES', 'LOWERCASE_SYMBOLS', 'ALLCASES_SYMBOLS'
         '''
-        self.lmdb_config = LmdbDatasetConfig(voc_type = 'LOWERCASE')
+        self.lmdb_config = LmdbDatasetConfig(voc_type = 'ALLCASES_SYMBOLS')
         self.lmdb_config.use_bidecoder = self.use_bidecoder
         self.lmdb_config.num_samples   = 0#-\inf to 0 means use all data
         
@@ -176,7 +183,7 @@ class TainTestConfig:
             torch.save({
                     'state_dict': model.module.state_dict(),
                     'best_score': eval_score,
-                }, "../data/models/model_best.pth"
+                }, "../data/logs/%s/model_best.pth"%self.name
             )
     def valid(self, test_dataset, data_loader, model):
 
@@ -184,6 +191,7 @@ class TainTestConfig:
         targets = []
         device  = self.device
         for i, data_in in enumerate(data_loader):
+            # with torch.no_grad():
             if self.use_bidecoder:
                 imgs, labels1, labels2, lengths = data_in
                 labels = (labels1.to(device), labels2.to(device))
@@ -193,13 +201,15 @@ class TainTestConfig:
             imgs = imgs.to(device)
             # lengths = lengths.to(device)
             
-            with torch.no_grad():
-                output_dict = model(imgs, labels)
-            
-            prediction = output_dict['prediction']
-            if isinstance(prediction, tuple):
-                prediction = prediction[0]
-            _, prediction = prediction.max(2)
+            # with torch.no_grad():
+            output_dict = model(imgs, labels, lengths.max().item())
+            if self.model_config.with_beam_search:
+                prediction = output_dict['prediction_beam']
+            else:
+                prediction = output_dict['prediction']
+                if isinstance(prediction, tuple):
+                    prediction = prediction[0]
+                _, prediction = prediction.max(2)
             pred_rec.append(prediction.cpu())
             targets.append(labels1.cpu() if self.use_bidecoder else labels.cpu())
             

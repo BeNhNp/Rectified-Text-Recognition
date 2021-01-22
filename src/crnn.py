@@ -85,7 +85,8 @@ class CRNN(nn.Module):
             self.cnn = cnn
         
         self.rnn = nn.LSTM(512, 256, 
-            bidirectional=True, num_layers=2, 
+            bidirectional=True,
+            num_layers=2, 
             dropout=0.2,
             batch_first=True
         )

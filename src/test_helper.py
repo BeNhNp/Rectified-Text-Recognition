@@ -1,6 +1,10 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
+import string
+
+allowed_symbols = string.digits + string.ascii_letters
+
 def get_str_list(output, target, config=None):
     # label_seq
     assert output.dim() == 2 and target.dim() == 2
@@ -10,7 +14,7 @@ def get_str_list(output, target, config=None):
     num_samples, max_len_labels = output.size()
     num_classes = config.num_classes
 #     print(target.shape, output.shape)
-    assert num_samples == target.size(0) and max_len_labels <= target.size(1)
+    assert num_samples == target.size(0) and max_len_labels == target.size(1)
     output = output.numpy()
     target = target.numpy()
     
@@ -20,8 +24,11 @@ def get_str_list(output, target, config=None):
         pred_list_i = []
         for j in range(max_len_labels):
             if output[i, j] != end_label:
-                if output[i, j] != unknown_label and output[i, j] < len(config.id2char):
-                    pred_list_i.append(config.id2char[output[i, j]])
+                if output[i, j] != unknown_label and \
+                    output[i, j] < len(config.id2char):
+                    c = config.id2char[output[i, j]]
+                    if c not in allowed_symbols: continue
+                    pred_list_i.append(c)
             else:
                 break
         pred_list.append(pred_list_i)
@@ -30,8 +37,11 @@ def get_str_list(output, target, config=None):
         targ_list_i = []
         for j in range(max_len_labels):
             if target[i, j] != end_label:
-                if target[i, j] != unknown_label:
-                    targ_list_i.append(config.id2char[target[i, j]])
+                if target[i, j] != unknown_label and \
+                    target[i, j] < len(config.id2char):
+                    c = config.id2char[target[i, j]]
+                    if c not in allowed_symbols: continue
+                    targ_list_i.append(c)
             else:
                 break
         targ_list.append(targ_list_i)

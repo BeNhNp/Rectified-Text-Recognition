@@ -5,7 +5,7 @@ import time
 import datetime
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]='0,1'
+os.environ["CUDA_VISIBLE_DEVICES"]='4,5,6,7'
 
 import torch
 
@@ -18,14 +18,16 @@ from dataset import LmdbDataset
 from model import TextRecognitionModel
 
 config = TainTestConfig()
-TIMESTAMP = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+# TIMESTAMP = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 writer = SummaryWriter(
-    log_dir="../data/logs/" + TIMESTAMP,
+    log_dir="../data/logs/" + config.name,
     flush_secs = 30,
 )
 
 # config.lmdb_config.num_samples = 10000
-config.batch_size = 1024
+# config.batch_size = 1024
+n_device = torch.cuda.device_count()
+config.batch_size = 256 * n_device
 config.iter_to_valid = 128*8
 
 train_dataset = torch.utils.data.ConcatDataset([
@@ -34,13 +36,14 @@ train_dataset = torch.utils.data.ConcatDataset([
 
 data_loader = DataLoader(train_dataset, 
     batch_size=config.batch_size, 
-    num_workers = 4,
+    num_workers = 2 * n_device,#4,
     shuffle = True, 
     pin_memory = True, 
     drop_last = True,
 )
 
-path = "../data/data_lmdb_release/evaluation/IIIT5k_3000"
+path = "../data/lmdbs/evaluation/IIIT5K_3000"
+config.batch_size = 1024
 config.lmdb_config.num_samples = 1000
 test_dataset = LmdbDataset(path, config.lmdb_config)
 
@@ -76,21 +79,21 @@ loss_function = MaskedCrossEntropyLoss(use_bidecoder=config.use_bidecoder)
 end = time.time()
 n_iter = 0
 n_iter_valid = 0
-model.train()
 
 for epoch in range(start_epoch, epochs):
         
     total_iter = len(data_loader)
     for i, data_in in enumerate(data_loader):
         n_iter += 1
+        model.train()
         
         if config.use_bidecoder:
             imgs, labels1, labels2, lengths = data_in
-            labels = (labels1.to(device), labels2.to(device))
+            labels = (labels1.to(device, non_blocking=True), labels2.to(device, non_blocking=True))
         else:
             imgs, labels, lengths = data_in
-            labels = labels.to(device)
-        imgs = imgs.to(device)
+            labels = labels.to(device, non_blocking=True)
+        imgs = imgs.to(device, non_blocking=True)
 #         lengths = lengths.to(device)
         
         output_dict = model(imgs, labels, lengths.max().item())
@@ -109,10 +112,11 @@ for epoch in range(start_epoch, epochs):
 
         if i % config.iter_to_valid==0: # valid on the test dataset
             model.eval()
-            eval_score = config.valid(test_dataset, data_loader_test, model)
+            with torch.no_grad():
+                eval_score = config.valid(test_dataset, data_loader_test, model)
             writer.add_scalar("Accuracy/valid", eval_score, n_iter_valid)
             n_iter_valid += 1
-            model.train()
+#             model.train()
 
         if i % 128==0: # output loss information
             time_elasped = time.time() - end

@@ -134,9 +134,10 @@ class DecoderWithAttention(nn.Module):
 #         sequence_scores = torch.Tensor(batch_size * beam_width, 1)
 #         sequence_scores.fill_(-float('Inf'))
         sequence_scores = -float('Inf')*torch.ones(batch_size * beam_width, 1, device = self.device)
-        sequence_scores.index_fill_(0, torch.tensor([i * beam_width for i in range(0, batch_size)], 
-                                                    device = self.device
-                                                   ).long(), 0.0)
+        sequence_scores.index_fill_(0, torch.tensor(
+            [i * beam_width for i in range(0, batch_size)], 
+            device = self.device
+            ).long(), 0.0)
         # sequence_scores.fill_(0.0)
 
         # Initialize the input vector

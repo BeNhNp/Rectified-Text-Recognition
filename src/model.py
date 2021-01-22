@@ -22,7 +22,7 @@ class TextRecognitionModelConfig:
         self.decoder_s_dim       = 512 # the dim of hidden layer in decoder
         self.use_bidecoder       = True
 
-        self.with_beam_search    = False
+        self.with_beam_search    = True
         self.beam_width          = 5
 
 class TextRecognitionModel(nn.Module):
